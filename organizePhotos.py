@@ -5,7 +5,15 @@ import hashlib
 import glob
 import sys
 
-def get_photo_date_taken (photo_file_name):
+def log(message, photo_file_name=None):
+	if photo_file_name != None:
+		print("[{}] {}".format(photo_file_name, message))
+		
+	else:
+		print(message)
+	
+
+def get_photo_date_taken(photo_file_name):
 	""" Extract the date the photo was taken using the embedded EXIF data
 	"""
 	
@@ -32,14 +40,16 @@ def get_photo_path(photo_file_name, photo_root_dir):
 	path = os.path.join(photo_root_dir, date_taken);
 	path = os.path.join(path, os.path.basename(photo_file_name))
 	
+	is_dupe = False
 	if os.path.exists(path):
 		log_string = "Photo filename already exists."
 		dupe = "";
 		if hashlib.md5(open(path, 'rb').read()).hexdigest() == hashlib.md5(open(photo_file_name, 'rb').read()).hexdigest():
 			log_string = "Photo filename already exists (duplicate detected)."
 			dupe = "DUP_"
+			is_dupe = True
 		
-		print(log_string)
+		log(log_string, photo_file_name)
 		
 		x = 0
 		filename_exists = True
@@ -52,46 +62,53 @@ def get_photo_path(photo_file_name, photo_root_dir):
 			
 			filename_exists = os.path.exists(path)
 		
-	return path
+	return {"path":path, "is_dupe":is_dupe}
 	
 	
-def move_photo(photo_file_name, photo_root_dir, dry_run):
+def move_photo(photo_file_name, photo_root_dir, dry_run, move_dupes=False):
 	""" Move the photo to the root, based on get_photo_path.  If
 	    dry_run is set, the file won't actually be moved.
 	"""
-	new_photo_path = get_photo_path(photo_file_name, photo_root_dir)
+	response = get_photo_path(photo_file_name, photo_root_dir)
+	new_photo_path = response['path']
+	is_dupe = response['is_dupe']
 	
-	print("Moving " + photo_file_name + " to " + new_photo_path)
-	if not dry_run:
-		if not os.path.isdir(os.path.dirname(new_photo_path)):
-			os.makedirs(os.path.dirname(new_photo_path))
-		os.rename(photo_file_name, new_photo_path)
+	if not is_dupe or (is_dupe and move_dupes):
 	
+		log("Moving " + photo_file_name + " to " + new_photo_path, photo_file_name)
+		if not dry_run:
+			if not os.path.isdir(os.path.dirname(new_photo_path)):
+				os.makedirs(os.path.dirname(new_photo_path))
+			os.rename(photo_file_name, new_photo_path)
+	else:
+		log("Duplicate detected; not moving", photo_file_name)
 
-def organize_directory(photo_directory, photo_root_dir, dry_run):
+def organize_directory(photo_directory, photo_root_dir, dry_run, move_dupes=False):
 	""" Move all the photos in the given directory, based on move_photo.  If
 	    dry_run is set, the file won't actually be moved.
 	"""
 	for filename in glob.iglob(photo_directory + "/**/*.*", recursive=True):
 
 		try: 
-			move_photo(filename, photo_root_dir, dry_run)
+			move_photo(filename, photo_root_dir, dry_run, move_dupes)
 		except Exception as error:
-			print("Move photo failed: {0}".format(error))
+			log("Move photo failed: {0}".format(error), filename)
 
 			
 if len(sys.argv) < 3:
 	raise Exception("The directory to process and the photo root is required.")
 
-dry_run = len(sys.argv) > 3 and sys.argv[3] == '--dry-run'
+# Get options
+dry_run = "--dry-run" in sys.argv
+move_dupes = "--move-dupes" in sys.argv
 
 if not os.path.isdir(sys.argv[1]):
 	raise Exception("Directory not found: " + sys.argv[1])
 	
 if not os.path.isdir(sys.argv[2]):
 	raise Exception("Directory not found: " + sys.argv[2])
-	
-organize_directory(sys.argv[1], sys.argv[2], dry_run)
+
+organize_directory(sys.argv[1], sys.argv[2], dry_run, move_dupes)
 
 
 
