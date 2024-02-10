@@ -4,6 +4,11 @@ import os
 import hashlib
 import glob
 import sys
+#from piwigo import Piwigo
+
+#piwigo_site = Piwigo('http://localhost')
+#piwigo_site.pwg.session.login(username="nathanz", password="Jupe1234")
+#pwg_token = piwigo_site.pwg.session.getStatus()['pwg_token']
 
 def log(message, photo_file_name=None):
 	if photo_file_name != None:
@@ -36,8 +41,8 @@ def get_photo_path(photo_file_name, photo_root_dir):
 	"""
 	
 	date_taken = get_photo_date_taken(photo_file_name)
-	
-	path = os.path.join(photo_root_dir, date_taken);
+
+	path = os.path.join(photo_root_dir, date_taken[0:4], date_taken)
 	path = os.path.join(path, os.path.basename(photo_file_name))
 	
 	is_dupe = False
@@ -65,10 +70,23 @@ def get_photo_path(photo_file_name, photo_root_dir):
 	return {"path":path, "is_dupe":is_dupe}
 	
 	
-def move_photo(photo_file_name, photo_root_dir, dry_run, move_dupes=False):
+def process_photo(photo_file_name, photo_root_dir, dry_run, move_dupes=False):
 	""" Move the photo to the root, based on get_photo_path.  If
 	    dry_run is set, the file won't actually be moved.
 	"""
+
+	#Check for photo in piwigo
+#	photo_hash = hashlib.md5(open(photo_file_name, 'rb').read()).hexdigest()
+#
+#	photo_exists = piwigo_site.pwg.images.exist(md5sum_list=photo_hash)
+#	log("photo_exists=" + str(photo_exists))
+#	if not photo_exists[photo_hash] == None:
+#		log("piwigo photo exists")
+#		photo_data = piwigo_site.pwg.images.getInfo(image_id=photo_exists[photo_hash])
+#		log("photo id=" + str(photo_data['id']))
+#	else:
+#		log("piwigo photo does not exist")
+
 	response = get_photo_path(photo_file_name, photo_root_dir)
 	new_photo_path = response['path']
 	is_dupe = response['is_dupe']
@@ -90,7 +108,7 @@ def organize_directory(photo_directory, photo_root_dir, dry_run, move_dupes=Fals
 	for filename in glob.iglob(photo_directory + "/**/*.*", recursive=True):
 
 		try: 
-			move_photo(filename, photo_root_dir, dry_run, move_dupes)
+			process_photo(filename, photo_root_dir, dry_run, move_dupes)
 		except Exception as error:
 			log("Move photo failed: {0}".format(error), filename)
 
